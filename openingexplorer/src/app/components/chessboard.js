@@ -14,7 +14,7 @@ export default function Chessboard({ onReset, onFlip, onToggleMode }) {
   const [orientation, setOrientation] = useState("white"); // Board orientation
   const [mode, setMode] = useState(false); // Boolean to represent mode
   const chess = new Chess(fen);
-  const turnColor = chess.turn() === "w" ? "white" : "black";
+  var turnColor = chess.turn() === "w" ? "white" : "black";
 
   const boardRef = useRef(null);
   const [boardSize, setBoardSize] = useState(512); // Default size
@@ -36,7 +36,104 @@ export default function Chessboard({ onReset, onFlip, onToggleMode }) {
   const handleMove = (from, to) => {
     chess.move({ from, to });
     setFen(chess.fen());
+    turnColor = chess.turn() === "w" ? "white" : "black";
+
+    if (mode == 1) {
+        tryAutomaticMove()
+    }
   };
+    
+const tryAutomaticMove = () => {
+
+    if (orientation != turnColor) {
+        requestMove()
+    }
+}
+
+const requestError = (response) => {
+    throw new Error('Network response was not ok ' + response.statusText);
+}
+    
+const filterMoves = (explorerMoves) => {
+    
+    var probabilities = []
+    var makeableMoves = []
+    var numberOfGames = explorerMoves.white+explorerMoves.black+explorerMoves.draws
+    if (numberOfGames < 5) {
+        return
+        console.log("no more games")
+    }
+    console.log("successful response",explorerMoves);
+    for (var i = 0; i < explorerMoves.moves.length; i++)  {
+        probabilities.push((explorerMoves.moves[i].white+explorerMoves.moves[i].black+explorerMoves.moves[i].draws)/(explorerMoves.white+explorerMoves.black+explorerMoves.draws))
+        makeableMoves.push(explorerMoves.moves[i].uci)
+        if (explorerMoves.moves[i].san == "O-O" || explorerMoves.moves[i].san == "O-O-O") {
+            
+            switch (makeableMoves[i]) {
+                case "e1h1":
+                makeableMoves[i] = "e1g1"
+                    break;
+                case "e1a1":
+                makeableMoves[i] = "e1c1"
+                    break;
+                case "e8a8":
+                makeableMoves[i] = "e8c8"
+                    break;   
+                case "e8h8":
+                makeableMoves[i] = "e8g8"
+                    break;
+                default:
+                    let k
+            }
+            }
+    }
+    return [makeableMoves,probabilities]
+}
+
+function chooseRandomFrom(items, weights) {
+    var i;
+
+    for (i = 1; i < weights.length; i++)
+        weights[i] += weights[i - 1];
+    
+    var random = Math.random() * weights[weights.length - 1];
+    
+    for (i = 0; i < weights.length; i++)
+        if (weights[i] > random)
+            break;
+    
+    return items[i];
+}
+    
+const formatMove = (chosenMove) => {
+    return {
+      from: chosenMove.slice(0,2),
+      to: chosenMove.slice(2,4),
+      promotion: "q", // always promote to a queen for example simplicity
+    }
+}
+ 
+const requestMove = () => {
+    fetch(`https://explorer.lichess.ovh/lichess?variant=standard&speeds=blitz,rapid,classical&ratings=1800,2000,2200,2500&fen=${chess.fen().replaceAll(" ", "%20")}&topGames=0&recentGames=0`)
+  .then(response => {
+    if (!response.ok) {
+      requestError(response)
+    }
+    return response.json();
+  })
+  .then(explorerMoves => {
+    
+    var [makeableMoves, probabilities] = filterMoves(explorerMoves)
+        
+    const chosenMove = chooseRandomFrom(makeableMoves,probabilities)
+    
+    const formattedMove = formatMove(chosenMove)
+    handleMove(formattedMove.from,formattedMove.to)
+  })
+  .catch(error => {
+    console.error('There was a problem with the fetch operation: ', error);
+  });
+}
 
   // Reset the game
   const resetGame = () => {
@@ -54,6 +151,9 @@ export default function Chessboard({ onReset, onFlip, onToggleMode }) {
   // Toggle mode (you can define what the mode does)
   const toggleMode = () => {
     setMode((prevMode) => !prevMode); // Flip between true and false
+    if (!mode) {
+        tryAutomaticMove()
+    }
   };
 
   // Expose reset, flip, and mode toggle functions to the parent
@@ -86,7 +186,7 @@ export default function Chessboard({ onReset, onFlip, onToggleMode }) {
         height={boardSize}
       />
       {/* Optionally show mode status for debugging */}
-      <p>Current Mode: {mode ? "Mode 1" : "Mode 2"}</p>
+      <p>Current Mode: {mode ? "Vs Database" : "Edit Position"}</p>
     </div>
   );
 }
