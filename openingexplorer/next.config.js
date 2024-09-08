@@ -2,16 +2,16 @@
  * @type {import('next').NextConfig}
  */
 const nextConfig = {
-  output: 'export',
- 
-  // Optional: Change links `/me` -> `/me/` and emit `/me.html` -> `/me/index.html`
+  output: 'standalone',
+
+  // Setting the base path to the full path after the hostname and domain
+  basePath: '/OpeningExplorer/openingexplorer/out',
+  assetPrefix: '/OpeningExplorer/openingexplorer/out/',
+
+  // Optional settings (uncomment if needed)
   // trailingSlash: true,
- 
-  // Optional: Prevent automatic `/me` -> `/me/`, instead preserve `href`
   // skipTrailingSlashRedirect: true,
- 
-  // Optional: Change the output directory `out` -> `dist`
   // distDir: 'dist',
-}
- 
-module.exports = nextConfig
+};
+
+module.exports = nextConfig;
