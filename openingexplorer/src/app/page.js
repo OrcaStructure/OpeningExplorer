@@ -1,5 +1,4 @@
-"use client";
-
+"use client"; 
 import { useState, useRef } from "react";
 import { Modal, Button, Grid, ScrollArea, Text } from "@mantine/core";
 import Chessboard from "./components/chessboard.js";
@@ -7,30 +6,39 @@ import styles from "./page.module.css";
 
 const Home = () => {
   const [modalOpened, setModalOpened] = useState(false);
+  const [pgn, setPgn] = useState(""); // State to store the PGN string
 
-  // Refs to hold the reset, flip, and toggle mode functions
   const resetRef = useRef(null);
   const flipRef = useRef(null);
   const toggleModeRef = useRef(null);
+  const pgnRef = useRef(null);
 
-  // Function to handle resetting the game
   const handleReset = () => {
     if (resetRef.current) {
-      resetRef.current(); // Calls the reset function on Chessboard
+      resetRef.current();
     }
   };
 
-  // Function to handle flipping the board
   const handleFlip = () => {
     if (flipRef.current) {
-      flipRef.current(); // Calls the flip function on Chessboard
+      flipRef.current();
     }
   };
 
-  // Function to handle toggling the mode
   const handleToggleMode = () => {
     if (toggleModeRef.current) {
-      toggleModeRef.current(); // Calls the toggle mode function on Chessboard
+      toggleModeRef.current();
+    }
+  };
+
+  // Function to open the modal and get PGN
+  const handleOpenModal = () => {
+    if (pgnRef.current) {
+      const currentPgn = pgnRef.current(); // Get PGN from the chessboard component
+      setPgn(currentPgn); // Set PGN in the state
+      setModalOpened(true); // Open modal
+    } else {
+      console.error("PGN function not initialized yet.");
     }
   };
 
@@ -47,6 +55,7 @@ const Home = () => {
         onReset={(resetFn) => (resetRef.current = resetFn)}
         onFlip={(flipFn) => (flipRef.current = flipFn)}
         onToggleMode={(toggleModeFn) => (toggleModeRef.current = toggleModeFn)}
+        onGetPgn={(getPgnFn) => (pgnRef.current = getPgnFn)}
       />
 
       {/* Responsive button grid */}
@@ -66,17 +75,17 @@ const Home = () => {
       <Modal
         opened={modalOpened}
         onClose={() => setModalOpened(false)}
-        title="Embedded Game Info"
+        title="Chess Analysis"
         size="lg"
       >
         <iframe
-          src="https://example.com"
+          src={`https://lichess.org/analysis/pgn/${encodeURIComponent(pgn)}`}
           width="100%"
           height="400"
-          title="Iframe Example"
+          title="Chess Analysis"
         />
       </Modal>
-      <Button onClick={() => setModalOpened(true)} mt="md">
+      <Button onClick={handleOpenModal} mt="md">
         Open Popup with Iframe
       </Button>
 

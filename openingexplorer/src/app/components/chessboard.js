@@ -7,12 +7,14 @@ import "./styles.css";
 import "./theme.css";
 import toDests from "./to-dests";
 
-export default function Chessboard({ onReset, onFlip, onToggleMode }) {
+export default function Chessboard({ onReset, onFlip, onToggleMode, onGetPgn }) {
   const [fen, setFen] = useState(
     "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
   );
   const [orientation, setOrientation] = useState("white"); // Board orientation
   const [mode, setMode] = useState(false); // Boolean to represent mode
+  const getPgn = () => chess.pgn();
+
   const chess = new Chess(fen);
   var turnColor = chess.turn() === "w" ? "white" : "black";
 
@@ -161,7 +163,8 @@ const requestMove = () => {
     if (onReset) onReset(resetGame);
     if (onFlip) onFlip(flipBoard);
     if (onToggleMode) onToggleMode(toggleMode);
-  }, [onReset, onFlip, onToggleMode]);
+    if (onGetPgn) onGetPgn(getPgn);
+  }, [onReset, onFlip, onToggleMode, onGetPgn]);
 
   return (
     <div
