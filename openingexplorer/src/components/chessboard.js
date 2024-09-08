@@ -1,3 +1,4 @@
+"use client"; 
 import Chess from "chess.js";
 import { useState, useRef, useEffect } from "react";
 import Chessground from "react-chessground";
@@ -7,15 +8,23 @@ import "./styles.css";
 import "./theme.css";
 import toDests from "./to-dests";
 
-export default function Chessboard({ onReset, onFlip, onToggleMode, onGetPgn }) {
+var stockfishWorker;
+
+if (typeof window !== "undefined") {
+    stockfishWorker = new Worker('stockfish.js');
+    var currentEval = 0
+    stockfishWorker.postMessage("uci");
+    stockfishWorker.postMessage("ucinewgame");
+}
+    
+export default function Chessboard({ onReset, onFlip, onToggleMode, onGetPgn, setEvaluation }) {
   const [fen, setFen] = useState(
     "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
   );
   const [orientation, setOrientation] = useState("white"); // Board orientation
   const [mode, setMode] = useState(false); // Boolean to represent mode
-  
-  // Use useRef to persist the chess instance across renders
-  const chessRef = useRef(new Chess(fen));
+
+  const chessRef = useRef(new Chess(fen)); // Persist the chess instance across renders
 
   const getPgn = () => {
     const pgnString = chessRef.current.pgn();
@@ -24,6 +33,7 @@ export default function Chessboard({ onReset, onFlip, onToggleMode, onGetPgn }) 
   };
 
   var turnColor = chessRef.current.turn() === "w" ? "white" : "black";
+    
 
   const boardRef = useRef(null);
   const [boardSize, setBoardSize] = useState(512); // Default size
@@ -42,19 +52,58 @@ export default function Chessboard({ onReset, onFlip, onToggleMode, onGetPgn }) 
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
+         
+
+    const handleWorkerMessage = (e) => {
+        e = e.data
+      if (e && typeof e === 'string' && e.includes('info depth 16')) {
+    // Extract evaluation from the info string
+          console.log(e, "data")
+    const evaluationMatch = e.match(/score cp (-?\d+)/);
+    
+        
+    if (evaluationMatch) {
+    var multiplier = -1 * (chessRef.current.turn() == "w" ? 1 : -1)
+      currentEval = multiplier * parseInt(evaluationMatch[1], 10) / 100;
+    }
+           
+    }
+    };
+    
+    if (typeof window !== "undefined") {
+        stockfishWorker.onmessage = handleWorkerMessage;
+    }
+    
   const handleMove = (from, to) => {
     chessRef.current.move({ from, to });
     console.log("Moved:", chessRef.current.pgn());
     setFen(chessRef.current.fen());
-    turnColor = chessRef.current.turn() === "w" ? "white" : "black";
 
-    if (mode === 1) {
+    // Calculate evaluation after each move (you can replace this with your actual logic)
+    const evaluation = calculateEvaluation(chessRef.current);
+    setEvaluation(evaluation); // Pass evaluation to the parent component
+
+    turnColor = chessRef.current.turn() === "w" ? "white" : "black";
+    
+    if (mode == 1) {
       tryAutomaticMove();
+    }
+    
+    if (typeof window !== "undefined") {
+        stockfishWorker.postMessage("go depth 20");
+        stockfishWorker.postMessage("position fen " + chessRef.current.fen());
     }
   };
 
+  // Example function to calculate evaluation (replace with actual logic)
+  const calculateEvaluation = (chessInstance) => {
+    return currentEval
+  };
+
   const tryAutomaticMove = () => {
+           console.log(orientation,turnColor)
     if (orientation !== turnColor) {
+        console.log("yes")
       requestMove();
     }
   };
@@ -164,17 +213,30 @@ export default function Chessboard({ onReset, onFlip, onToggleMode, onGetPgn }) 
   const toggleMode = () => {
     setMode((prevMode) => !prevMode); // Flip between true and false
     if (!mode) {
+        turnColor = chessRef.current.turn() === "w" ? "white" : "black"
       tryAutomaticMove();
     }
   };
+    
+ useEffect(() => {
+     
+
+  // Set up interval to update evaluation every 0.2 seconds
+  const intervalId = setInterval(() => {
+    const evaluation = calculateEvaluation(chessRef.current);
+    setEvaluation(evaluation); // Update evaluation every 0.2 seconds
+  }, 200);
 
   // Expose reset, flip, and mode toggle functions to the parent
-  useEffect(() => {
-    if (onReset) onReset(resetGame);
-    if (onFlip) onFlip(flipBoard);
-    if (onToggleMode) onToggleMode(toggleMode);
-    if (onGetPgn) onGetPgn(getPgn);
-  }, [onReset, onFlip, onToggleMode, onGetPgn]);
+  if (onReset) onReset(resetGame);
+  if (onFlip) onFlip(flipBoard);
+  if (onToggleMode) onToggleMode(toggleMode);
+  if (onGetPgn) onGetPgn(getPgn);
+
+  // Clean up the interval on component unmount
+  return () => clearInterval(intervalId);
+}, [onReset, onFlip, onToggleMode, onGetPgn, setEvaluation]); // Dependencies
+
 
   return (
     <div

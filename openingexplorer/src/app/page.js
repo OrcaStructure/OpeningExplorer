@@ -1,12 +1,13 @@
 "use client"; 
 import { useState, useRef } from "react";
-import { Modal, Button, Grid, ScrollArea, Text } from "@mantine/core";
-import Chessboard from "./components/chessboard.js";
+import { Modal, Button, Grid, ScrollArea, Text, Card, Title } from "@mantine/core";
+import Chessboard from "../components/chessboard.js";
 import styles from "./page.module.css";
 
 const Home = () => {
   const [modalOpened, setModalOpened] = useState(false);
   const [pgn, setPgn] = useState(""); // State to store the PGN string
+  const [evaluation, setEvaluation] = useState(0); // State to store evaluation
 
   const resetRef = useRef(null);
   const flipRef = useRef(null);
@@ -31,16 +32,11 @@ const Home = () => {
     }
   };
 
-  // Function to open the modal and get PGN
   const handleOpenModal = () => {
-              console.log(pgnRef.current)
-
     if (pgnRef.current) {
       const currentPgn = pgnRef.current(); // Get PGN from the chessboard component
       setPgn(currentPgn); // Set PGN in the state
       setModalOpened(true); // Open modal
-        console.log(currentPgn)
-
     } else {
       console.error("PGN function not initialized yet.");
     }
@@ -54,12 +50,18 @@ const Home = () => {
         <p>Play and explore chess moves in real-time</p>
       </header>
 
+      {/* Evaluation display */}
+      <Card shadow="sm" padding="lg" style={{ textAlign: "center", marginBottom: "20px" }}>
+        <Title order={4}>Current Evaluation: {evaluation > 0 ? `+${evaluation}` : evaluation}</Title>
+      </Card>
+
       {/* Responsive Chessboard */}
       <Chessboard
         onReset={(resetFn) => (resetRef.current = resetFn)}
         onFlip={(flipFn) => (flipRef.current = flipFn)}
         onToggleMode={(toggleModeFn) => (toggleModeRef.current = toggleModeFn)}
         onGetPgn={(getPgnFn) => (pgnRef.current = getPgnFn)}
+        setEvaluation={setEvaluation} // Add setEvaluation to chessboard component
       />
 
       {/* Responsive button grid */}
