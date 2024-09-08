@@ -13,10 +13,17 @@ export default function Chessboard({ onReset, onFlip, onToggleMode, onGetPgn }) 
   );
   const [orientation, setOrientation] = useState("white"); // Board orientation
   const [mode, setMode] = useState(false); // Boolean to represent mode
-  const getPgn = () => chess.pgn();
+  
+  // Use useRef to persist the chess instance across renders
+  const chessRef = useRef(new Chess(fen));
 
-  const chess = new Chess(fen);
-  var turnColor = chess.turn() === "w" ? "white" : "black";
+  const getPgn = () => {
+    const pgnString = chessRef.current.pgn();
+    console.log("Generated PGN:", pgnString);
+    return pgnString;
+  };
+
+  var turnColor = chessRef.current.turn() === "w" ? "white" : "black";
 
   const boardRef = useRef(null);
   const [boardSize, setBoardSize] = useState(512); // Default size
@@ -36,111 +43,114 @@ export default function Chessboard({ onReset, onFlip, onToggleMode, onGetPgn }) 
   }, []);
 
   const handleMove = (from, to) => {
-    chess.move({ from, to });
-    setFen(chess.fen());
-    turnColor = chess.turn() === "w" ? "white" : "black";
+    chessRef.current.move({ from, to });
+    console.log("Moved:", chessRef.current.pgn());
+    setFen(chessRef.current.fen());
+    turnColor = chessRef.current.turn() === "w" ? "white" : "black";
 
-    if (mode == 1) {
-        tryAutomaticMove()
+    if (mode === 1) {
+      tryAutomaticMove();
     }
   };
-    
-const tryAutomaticMove = () => {
 
-    if (orientation != turnColor) {
-        requestMove()
+  const tryAutomaticMove = () => {
+    if (orientation !== turnColor) {
+      requestMove();
     }
-}
+  };
 
-const requestError = (response) => {
-    throw new Error('Network response was not ok ' + response.statusText);
-}
-    
-const filterMoves = (explorerMoves) => {
-    
-    var probabilities = []
-    var makeableMoves = []
-    var numberOfGames = explorerMoves.white+explorerMoves.black+explorerMoves.draws
+  const requestError = (response) => {
+    throw new Error("Network response was not ok " + response.statusText);
+  };
+
+  const filterMoves = (explorerMoves) => {
+    var probabilities = [];
+    var makeableMoves = [];
+    var numberOfGames =
+      explorerMoves.white + explorerMoves.black + explorerMoves.draws;
     if (numberOfGames < 5) {
-        return
-        console.log("no more games")
+      console.log("No more games");
+      return;
     }
-    console.log("successful response",explorerMoves);
-    for (var i = 0; i < explorerMoves.moves.length; i++)  {
-        probabilities.push((explorerMoves.moves[i].white+explorerMoves.moves[i].black+explorerMoves.moves[i].draws)/(explorerMoves.white+explorerMoves.black+explorerMoves.draws))
-        makeableMoves.push(explorerMoves.moves[i].uci)
-        if (explorerMoves.moves[i].san == "O-O" || explorerMoves.moves[i].san == "O-O-O") {
-            
-            switch (makeableMoves[i]) {
-                case "e1h1":
-                makeableMoves[i] = "e1g1"
-                    break;
-                case "e1a1":
-                makeableMoves[i] = "e1c1"
-                    break;
-                case "e8a8":
-                makeableMoves[i] = "e8c8"
-                    break;   
-                case "e8h8":
-                makeableMoves[i] = "e8g8"
-                    break;
-                default:
-                    let k
-            }
-            }
-    }
-    return [makeableMoves,probabilities]
-}
 
-function chooseRandomFrom(items, weights) {
-    var i;
-
-    for (i = 1; i < weights.length; i++)
-        weights[i] += weights[i - 1];
-    
-    var random = Math.random() * weights[weights.length - 1];
-    
-    for (i = 0; i < weights.length; i++)
-        if (weights[i] > random)
+    for (var i = 0; i < explorerMoves.moves.length; i++) {
+      probabilities.push(
+        (explorerMoves.moves[i].white +
+          explorerMoves.moves[i].black +
+          explorerMoves.moves[i].draws) /
+          (explorerMoves.white + explorerMoves.black + explorerMoves.draws)
+      );
+      makeableMoves.push(explorerMoves.moves[i].uci);
+      if (
+        explorerMoves.moves[i].san === "O-O" ||
+        explorerMoves.moves[i].san === "O-O-O"
+      ) {
+        switch (makeableMoves[i]) {
+          case "e1h1":
+            makeableMoves[i] = "e1g1";
             break;
-    
-    return items[i];
-}
-    
-const formatMove = (chosenMove) => {
+          case "e1a1":
+            makeableMoves[i] = "e1c1";
+            break;
+          case "e8a8":
+            makeableMoves[i] = "e8c8";
+            break;
+          case "e8h8":
+            makeableMoves[i] = "e8g8";
+            break;
+          default:
+            break;
+        }
+      }
+    }
+    return [makeableMoves, probabilities];
+  };
+
+  function chooseRandomFrom(items, weights) {
+    for (let i = 1; i < weights.length; i++) weights[i] += weights[i - 1];
+
+    const random = Math.random() * weights[weights.length - 1];
+
+    for (let i = 0; i < weights.length; i++)
+      if (weights[i] > random) return items[i];
+  }
+
+  const formatMove = (chosenMove) => {
     return {
-      from: chosenMove.slice(0,2),
-      to: chosenMove.slice(2,4),
-      promotion: "q", // always promote to a queen for example simplicity
-    }
-}
- 
-const requestMove = () => {
-    fetch(`https://explorer.lichess.ovh/lichess?variant=standard&speeds=blitz,rapid,classical&ratings=1800,2000,2200,2500&fen=${chess.fen().replaceAll(" ", "%20")}&topGames=0&recentGames=0`)
-  .then(response => {
-    if (!response.ok) {
-      requestError(response)
-    }
-    return response.json();
-  })
-  .then(explorerMoves => {
-    
-    var [makeableMoves, probabilities] = filterMoves(explorerMoves)
-        
-    const chosenMove = chooseRandomFrom(makeableMoves,probabilities)
-    
-    const formattedMove = formatMove(chosenMove)
-    handleMove(formattedMove.from,formattedMove.to)
-  })
-  .catch(error => {
-    console.error('There was a problem with the fetch operation: ', error);
-  });
-}
+      from: chosenMove.slice(0, 2),
+      to: chosenMove.slice(2, 4),
+      promotion: "q", // always promote to a queen for simplicity
+    };
+  };
+
+  const requestMove = () => {
+    fetch(
+      `https://explorer.lichess.ovh/lichess?variant=standard&speeds=blitz,rapid,classical&ratings=1800,2000,2200,2500&fen=${chessRef.current
+        .fen()
+        .replaceAll(" ", "%20")}&topGames=0&recentGames=0`
+    )
+      .then((response) => {
+        if (!response.ok) {
+          requestError(response);
+        }
+        return response.json();
+      })
+      .then((explorerMoves) => {
+        const [makeableMoves, probabilities] = filterMoves(explorerMoves);
+
+        const chosenMove = chooseRandomFrom(makeableMoves, probabilities);
+        const formattedMove = formatMove(chosenMove);
+        handleMove(formattedMove.from, formattedMove.to);
+      })
+      .catch((error) => {
+        console.error("There was a problem with the fetch operation: ", error);
+      });
+  };
 
   // Reset the game
   const resetGame = () => {
-    chess.reset();
-    setFen(chess.fen());
+    chessRef.current.reset();
+    setFen(chessRef.current.fen());
   };
 
   // Flip the board orientation
@@ -154,7 +164,7 @@ const requestMove = () => {
   const toggleMode = () => {
     setMode((prevMode) => !prevMode); // Flip between true and false
     if (!mode) {
-        tryAutomaticMove()
+      tryAutomaticMove();
     }
   };
 
@@ -183,7 +193,7 @@ const requestMove = () => {
         fen={fen}
         turnColor={turnColor}
         onMove={handleMove}
-        movable={toDests(chess)}
+        movable={toDests(chessRef.current)}
         orientation={orientation} // Dynamic orientation (flipping the board)
         width={boardSize}
         height={boardSize}

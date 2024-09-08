@@ -33,10 +33,14 @@ const Home = () => {
 
   // Function to open the modal and get PGN
   const handleOpenModal = () => {
+              console.log(pgnRef.current)
+
     if (pgnRef.current) {
       const currentPgn = pgnRef.current(); // Get PGN from the chessboard component
       setPgn(currentPgn); // Set PGN in the state
       setModalOpened(true); // Open modal
+        console.log(currentPgn)
+
     } else {
       console.error("PGN function not initialized yet.");
     }
